@@ -2,94 +2,98 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\UserRequest;
-use App\Models\Master\Users;
+use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Exception;
+use DataTables;
+use Hash;
 
 class UserController extends Controller
 {
     public function index(Request $request)
     {
-        try {
-            $users = Users::query();
+        if ($request->ajax()) {
+            $query = User::query()
+                ->when($request->role, function($q) use ($request) {
+                    $q->where('role', $request->role);
+                });
 
-            if ($request->search) {
-                $users->where('first_name', 'like', "%{$request->search}%")
-                    ->orWhere('email', 'like', "%{$request->search}%");
-            }
-
-            $users = $users->paginate(10);
-            return view('master.users.index', compact('users'));
-        } catch (Exception $e) {
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return DataTables::of($query)
+                ->addIndexColumn()
+                ->addColumn('action', function($row){
+                    $actions = '<button class="btn btn-sm btn-primary edit-btn" data-id="'.$row->id.'">Edit</button>';
+                    if ($row->is_locked) {
+                        $actions .= '<button class="btn btn-sm btn-warning unlock-btn" data-id="'.$row->id.'">Unlock</button>';
+                    } else {
+                        $actions .= '<button class="btn btn-sm btn-danger lock-btn" data-id="'.$row->id.'">Lock</button>';
+                    }
+                    return $actions;
+                })
+                ->rawColumns(['action'])
+                ->make(true);
         }
+
+        return view('users.index');
     }
 
-    public function store(UserRequest $request)
+    public function store(Request $request)
     {
-        DB::beginTransaction();
-        try {
-            Users::createUser($request->validated());
-            DB::commit();
-            return redirect()->back()->with('success', 'User berhasil ditambahkan');
-        } catch (Exception $e) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal menambahkan User: ' . $e->getMessage());
-        }
+        $request->validate([
+            'username' => 'required|string|min:8|max:100|unique:users',
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'max:100',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'
+            ],
+            'name' => 'required|string|min:8|max:100',
+            'email' => 'required|string|min:8|max:100|email|unique:users',
+            'role' => 'required|in:Admin,Operator',
+        ]);
+
+        $request->merge([
+            'password' => Hash::make($request->password)
+        ]);
+
+        User::create($request->all());
+        return response()->json(['success' => true]);
     }
 
-    public function show(Users $user)
+    public function update(Request $request, User $user)
     {
-        try {
-            return view('master.users.edit', compact('user'))->with('viewMode', true);
-        } catch (Exception $e) {
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        $request->validate([
+            'username' => 'required|string|min:8|max:100|unique:users,username,'.$user->id,
+            'password' => [
+                'nullable',
+                'string',
+                'min:8',
+                'max:100',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/'
+            ],
+            'name' => 'required|string|min:8|max:100',
+            'email' => 'required|string|min:8|max:100|email|unique:users,email,'.$user->id,
+            'role' => 'required|in:Admin,Operator',
+        ]);
+
+        if ($request->filled('password')) {
+            $request->merge([
+                'password' => Hash::make($request->password)
+            ]);
+        } else {
+            $request->request->remove('password');
         }
+
+        $user->update($request->all());
+        return response()->json(['success' => true]);
     }
 
-    public function edit(Users $user)
+    public function toggleLock(User $user)
     {
-        try {
-            return view('master.users.edit', compact('user'))->with('viewMode', false);
-        } catch (Exception $e) {
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
-        }
+        $user->update(['is_locked' => !$user->is_locked]);
+        return response()->json(['success' => true]);
     }
-
-    public function update(UserRequest $request, Users $user)
+    public function show(User $user)
     {
-        DB::beginTransaction();
-        try {
-            $data = $request->validated();
-
-            // Jika ada password baru, gunakan password baru
-            if (!empty($request->password_new)) {
-                $data['password'] = bcrypt($request->password_new);
-            }
-
-            $user->update($data);
-            DB::commit();
-            return redirect()
-                ->route('users.index')
-                ->with('success', 'User berhasil diperbarui');
-        } catch (Exception $e) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal memperbarui User: ' . $e->getMessage());
-        }
-    }
-
-    public function destroy(Users $user)
-    {
-        DB::beginTransaction();
-        try {
-            $user->delete();
-            DB::commit();
-            return redirect()->back()->with('success', 'User berhasil dihapus');
-        } catch (Exception $e) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal menghapus User: ' . $e->getMessage());
-        }
+        return response()->json($user);
     }
 }

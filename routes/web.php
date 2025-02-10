@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\IncomingItemController;
 use App\Http\Controllers\Merchant\MerchantController;
 use App\Http\Controllers\Merchant\MerchantPaymentController;
 use App\Http\Controllers\Monitoring\CartItemController;
@@ -9,6 +11,7 @@ use App\Http\Controllers\Payment\PaymentController;
 use App\Http\Controllers\Product\ProductCategoryController;
 use App\Http\Controllers\Product\ProductController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserRoleController;
@@ -32,54 +35,39 @@ use Illuminate\Support\Facades\Route;
 // Route::get('/', function () {
 //     return view('welcome');
 // });
-Route::get('/', [App\Http\Controllers\HomeController::class, 'index']);
+Route::get('/', [App\Http\Controllers\IncomingItemController::class, 'index']);
 
 Auth::routes();
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::middleware(['auth'])->group(function () {
+    // Dashboard & Incoming Items (bisa diakses Admin dan Operator)
+    Route::get('/', [App\Http\Controllers\IncomingItemController::class, 'index'])->name('home');
 
-Route::middleware('auth')->group(callback: function () {
-    Route::view('about', 'about')->name('about');
+    Route::resource('incoming-items', IncomingItemController::class);
+    Route::post('incoming-items/{incomingItem}/toggle-verification', [IncomingItemController::class, 'toggleVerification'])
+        ->name('incoming-items.toggle-verification');
+    Route::get('incoming-items/{incomingItem}/print', [IncomingItemController::class, 'print'])
+        ->name('incoming-items.print');
+    Route::get('incoming-items/export', [IncomingItemController::class, 'export'])
+        ->name('incoming-items.export');
 
-// routes/web.php
-//    Master User
-    Route::resource('users', UserController::class);
-    Route::resource('roles', RoleController::class);
-    Route::resource('user-roles', UserRoleController::class);
+    // Master Data (hanya bisa diakses Admin)
+    Route::middleware(['check.role:Admin'])->group(function () {
+        // Users
+        Route::resource('users', UserController::class);
+        Route::post('users/{user}/toggle-lock', [UserController::class, 'toggleLock'])
+            ->name('users.toggle-lock');
 
-//    Master City
-    Route::resource('provinces', ProvinceController::class);
-    Route::resource('cities', CityController::class);
-    Route::resource('subdistricts', SubdistrictController::class);
+        // Categories
+        Route::resource('categories', CategoryController::class);
 
-//    product
-    Route::resource('products', ProductController::class);
-    Route::resource('product-category', ProductCategoryController::class);
-
-//    merchant
-    Route::resource('merchants', MerchantController::class);
-
-//    Monitoring
-    Route::resource('cart-items', CartItemController::class);
-    Route::get('cart-total', [CartItemController::class, 'getCartTotal']);
-
-//    Merchant-payments
-    Route::resource('merchant-payments', MerchantPaymentController::class);
-
-//    Shipments
-    Route::resource('shipments', ShipmentController::class);
-//    Sales Report
-    Route::resource('sales-reports', SalesReportController::class);
-
-//    Payment
-    Route::resource('payments', PaymentController::class);
-
-    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        // Sub Categories
+        Route::resource('sub-categories', SubCategoryController::class);
+        Route::get('sub-categories/by-category/{category}', [SubCategoryController::class, 'getByCategory'])
+            ->name('sub-categories.by-category');
+    });
 });
 
-Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
 
 

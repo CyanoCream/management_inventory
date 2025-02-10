@@ -27,9 +27,9 @@
                     <div class="row">
                         <div class="col-12">
                             <div class="input-style-1">
-                                <label for="email">{{ __('Email') }}</label>
-                                <input @error('email') class="form-control is-invalid" @enderror type="email" name="email" id="email" placeholder="{{ __('Email') }}" required autocomplete="email" autofocus>
-                                @error('email')
+                                <label for="username">{{ __('Email') }}</label>
+                                <input @error('username') class="form-control is-invalid" @enderror type="text" name="username" id="email" placeholder="{{ __('Username') }}" required autocomplete="username" autofocus>
+                                @error('username')
                                     <span class="invalid-feedback" role="alert">
                                         <strong>{{ $message }}</strong>
                                     </span>

@@ -2,62 +2,26 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
+use Illuminate\Notifications\Notifiable;
 
-
-class User extends Authenticatable implements JWTSubject
+class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
+    use Notifiable;
 
     protected $fillable = [
-        'first_name',
-        'last_name',
-        'email',
-        'password',
-        'birthdate',
-        'address'
+        'username', 'password', 'name', 'email', 'role', 'is_locked'
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
     protected $hidden = [
         'password',
-        'remember_token',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
-        'email_verified_at' => 'datetime',
+        'is_locked' => 'boolean',
     ];
-
-    // Implementasi metode dari JWTSubject
-    public function getJWTIdentifier()
+    public function isAdmin()
     {
-        // Return primary key dari model user (biasanya 'id')
-        return $this->getKey();
-    }
-
-    public function getJWTCustomClaims()
-    {
-        // Return array kosong jika tidak ada klaim tambahan
-        return [];
+        return $this->role === 'Admin';
     }
 }
